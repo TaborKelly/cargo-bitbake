@@ -24,8 +24,10 @@ use cargo::core::resolver::CliFeatures;
 use cargo::core::GitReference;
 use cargo::core::{Package, PackageSet, Resolve, Workspace};
 use cargo::ops;
+use cargo::sources::SourceConfigMap;
+use cargo::util::context::GlobalContext;
 use cargo::util::{important_paths, CargoResult};
-use cargo::{CliResult, GlobalContext};
+use cargo::CliResult;
 use itertools::Itertools;
 use std::default::Default;
 use std::env;
@@ -69,7 +71,8 @@ impl<'gctx> PackageInfo<'gctx> {
     /// Generates a package registry by using the Cargo.lock or
     /// creating one as necessary
     fn registry(&self) -> CargoResult<PackageRegistry<'gctx>> {
-        let mut registry = self.ws.package_registry()?;
+        let source_config_map = SourceConfigMap::new(self._gctx)?;
+        let mut registry = PackageRegistry::new_with_source_config(self._gctx, source_config_map)?;
         let package = self.package()?;
         registry.add_sources(vec![package.package_id().source_id()])?;
         Ok(registry)
@@ -368,7 +371,11 @@ fn real_main(options: Args, gctx: &mut GlobalContext) -> CliResult {
         }
         // we should be using ${SRCPV} here but due to a bitbake bug we cannot. see:
         // https://github.com/meta-rust/meta-rust/issues/136
-        format!("{} = \".AUTOINC+{}\"", pv_append_key, &project_repo.rev[..10])
+        format!(
+            "{} = \".AUTOINC+{}\"",
+            pv_append_key,
+            &project_repo.rev[..10]
+        )
     } else {
         // its a tag so nothing needed
         "".into()
